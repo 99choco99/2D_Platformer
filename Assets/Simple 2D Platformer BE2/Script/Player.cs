@@ -5,8 +5,12 @@ using UnityEngine;
 public class Player : MonoBehaviour
 {
     Rigidbody2D rigid;
-    public float speed = 1.0f;
-    public float maxSpeed = 3.0f;
+    public float maxSpeed;
+    public float jumpPower;
+    public float maxHealth;
+    float health;
+
+
     SpriteRenderer sprite;
     Animator anim;
 
@@ -16,12 +20,20 @@ public class Player : MonoBehaviour
         rigid = GetComponent<Rigidbody2D>();
         sprite = GetComponent<SpriteRenderer>();
         anim = GetComponent<Animator>();
+
+        health = maxHealth;
     }
 
     private void Update()
     {
 
-        if (Input.GetButtonUp("Horizontal"))
+        if (Input.GetButtonDown("Vertical") && !anim.GetBool("Isjump"))
+        {
+            anim.SetBool("Isjump",true);
+            rigid.AddForce(Vector2.up * jumpPower, ForceMode2D.Impulse);
+        }
+
+        if (!Input.GetButton("Horizontal"))
         {
             rigid.velocity = new Vector2(0, rigid.velocity.y);
         }
@@ -37,6 +49,32 @@ public class Player : MonoBehaviour
 
     }
 
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if(collision.gameObject.tag == "Enemy")
+        {
+            OnDamaged(collision.transform.position);
+        }
+    }
+
+
+    void OnDamaged(Vector2 targetPos)
+    {
+        gameObject.layer = 9;
+        sprite.color = new Color(1, 1, 1, 0.4f);
+
+        int dir = targetPos.x - transform.position.x > 0 ? 1 : -1;
+        rigid.AddForce(new Vector2(dir, 1), ForceMode2D.Impulse);
+
+        Invoke("OffDamage",1);
+    }
+
+    void OffDamage()
+    {
+        gameObject.layer = 8;
+        sprite.color = new Color(1, 1, 1, 1);
+    }
+
     private void FixedUpdate()
     {
         float inputX = Input.GetAxisRaw("Horizontal");
@@ -44,21 +82,26 @@ public class Player : MonoBehaviour
         if (inputX > 0) { sprite.flipX = false; }
         else if(inputX < 0) { sprite.flipX = true; }
 
-        rigid.AddForce(inputX * Vector2.right * speed, ForceMode2D.Impulse);
-
-        if(rigid.velocity.x >= maxSpeed)
+        rigid.AddForce(inputX * Vector2.right, ForceMode2D.Impulse);
+        if (rigid.velocity.x > maxSpeed)
         {
             rigid.velocity = new Vector2(maxSpeed, rigid.velocity.y);  // 오른쪽 속도 제한
-        }else if(rigid.velocity.x <= maxSpeed * -1)
+        }
+        else if(rigid.velocity.x < maxSpeed * -1)
         {
             rigid.velocity = new Vector2(maxSpeed * -1, rigid.velocity.y);  // 왼쪽 속도 제한
         }
-        bool inputY = Input.GetButton("Jump");
-        if (inputY)
+
+        if (rigid.velocity.y < 0)
         {
-            rigid.AddForce(Vector2.up * speed, ForceMode2D.Impulse);
+            RaycastHit2D rayhit = Physics2D.Raycast(rigid.position, Vector3.down, 1, LayerMask.GetMask("Platform"));
+            if (rayhit.collider != null)
+            {
+                if (rayhit.distance < 0.5f)
+                {
+                    anim.SetBool("Isjump", false);
+                }
+            }
         }
-
-
     }
 }
